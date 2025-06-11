@@ -16,7 +16,11 @@ def load_raw_data() -> Tuple[np.ndarray, np.ndarray]:
     return embeddings, groundtruth
 
 
-def subset_data(subset_size: float) -> Tuple[np.ndarray, np.ndarray]:
+def subset_data(
+    embeddings: np.ndarray,
+    groundtruth: np.ndarray,
+    subset_size: float
+) -> Tuple[np.ndarray, np.ndarray]:
     n_seqs = embeddings.shape[0]
     n_seqs_subset = int(subset_size * n_seqs)
 
@@ -36,7 +40,9 @@ if __name__ == "__main__":
     assert embeddings.shape[:2] == groundtruth.shape[:2]
 
     subset_size = 0.3
-    embeddings_subset, groundtruth_subset = subset_data(subset_size)
+    embeddings_subset, groundtruth_subset = subset_data(
+        embeddings, groundtruth, subset_size
+    )
 
     subset_size_pct = int(subset_size * 100)
     group_dir = "/s/project/ml4rg_students/2025/project02/group-1"
