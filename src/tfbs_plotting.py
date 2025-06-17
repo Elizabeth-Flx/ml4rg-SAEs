@@ -51,6 +51,26 @@ def plot_tfbs_by_tf(tfbs: np.ndarray, savepath: str | None = None):
         plt.show()
 
 
+def plot_tfbs_by_seq(tfbs: np.ndarray, savepath: str | None = None):
+    individual = tfbs[:, :, :57]
+    aggregated = tfbs[:, :, 57]
+
+    # Look at #binding sites over sequences distribution
+    individual_by_seq = individual.sum(axis=-1).sum(axis=-1)
+    aggregated_by_seq = aggregated.sum(axis=-1)
+
+    ylabel = "No. TFBS"
+    plt.boxplot([individual_by_seq, aggregated_by_seq])
+    plt.xticks(
+        ticks=[1, 2], labels=["Individual TFs summed up", "Aggregated track"]
+    )
+    plt.ylabel(ylabel)
+    if savepath is not None:
+        plt.savefig(savepath)
+    else:
+        plt.show()
+
+
 if __name__ == "__main__":
     data_dir = os.path.join(os.path.dirname(__file__), "../data")
     tfbs_filepath = os.path.join(
@@ -61,3 +81,5 @@ if __name__ == "__main__":
     plot_tfbs_by_position(tfbs)
 
     plot_tfbs_by_tf(tfbs)
+
+    plot_tfbs_by_seq(tfbs)
