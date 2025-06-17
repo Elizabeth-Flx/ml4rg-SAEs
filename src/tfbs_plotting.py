@@ -21,11 +21,11 @@ def plot_tfbs_by_position(tfbs: np.ndarray, savepath: str | None = None):
     xlabel = "Position"
     ylabel = "No. TFBS"
     fig, ax = plt.subplots(ncols=2, sharex=True, sharey=True)
-    ax[0].bar(positions + 1, individual_by_pos)
+    ax[0].plot(positions + 1, individual_by_pos)
     ax[0].set_xlabel(xlabel)
     ax[0].set_ylabel(ylabel)
     ax[0].set_title("Individual TFs summed up")
-    ax[1].bar(positions + 1, aggregated_by_pos)
+    ax[1].plot(positions + 1, aggregated_by_pos)
     ax[1].set_xlabel(xlabel)
     ax[1].set_title("Aggregated track")
 
