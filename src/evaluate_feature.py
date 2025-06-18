@@ -1,78 +1,110 @@
 import numpy as np
 from sklearn import metrics
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
-def normalize_classifier_score(prediction):
-    if np.min(prediction) >= 0 and np.max(prediction) <= 1:
-        return prediction 
-    return (prediction - np.min(prediction)) / (np.max(prediction) - np.min(prediction))
+def normalize_classifier_matrix(X):
+    """
+    column-wise, should normalize by prediction
+    i.e. rows correspond to observations 
+    and columns correspond to predictions
+    """
+    if X.min()>=0 and X.max()<=1:
+        return X
+    min_vals = X.min(axis=0, keepdims=True)
+    max_vals = X.max(axis=0, keepdims=True)
+    ranges = max_vals - min_vals
+    ranges[ranges == 0] = 1  # Avoid division by zero
+    return (X - min_vals) / ranges
+
 def normalize_binary(ground_truth):
+    if np.array_equal(ground_truth, ground_truth.astype(bool)):
+        return ground_truth
     return [0 if x == 0 else 1 for x in ground_truth]
 
 # INPUT: Vector, binary baseline
 # OUTPUT: AUC
 def calculate_AUC_vector(prediction, ground_truth):
     """
-    prediction: 1D vector, will get normalized to range 0-1 if it isn't already (min-max-normalization, except if range already fits)
-    ground_truth: 1D vector, will get normalized to range 0-1 if it isn't already (with everything above 0 -> 1)
+    prediction: 1D vector, range 0-1
+    ground_truth: 1D vector, 0 or 1, or binary
     
     output: AUC score
     """
-    ground_truth = normalize_binary(ground_truth)
-    prediction = normalize_classifier_score(prediction)
-    fpr, tpr, thresholds = metrics.roc_curve(ground_truth, prediction, pos_label=1) # positive: 1
-    return metrics.auc(fpr, tpr)
+    return metrics.roc_auc_score(ground_truth, prediction)
 
 # INPUT: Vector, binary baseline
 # OUTPUT: average precision
 def calculate_precision_vector(prediction, ground_truth):
     """
-    prediction: 1D vector, will get normalized to range 0-1 if it isn't already (min-max-normalization, except if range already fits)
-    ground_truth: 1D vector, will get normalized to range 0-1 if it isn't already (with everything above 0 -> 1)
+    prediction: 1D vector, range 0-1
+    ground_truth: 1D vector, 0 or 1, or binary
     
     output: average precision
     """
-    ground_truth = normalize_binary(ground_truth)
-    prediction = normalize_classifier_score(prediction)
     return metrics.average_precision_score(ground_truth, prediction, pos_label=1)
 
 def calculate_AUC_matrix(prediction_matrix, ground_truth_matrix):
     """
-    AUC for each row in prediction  *  each row in ground_truth
-    returns: matrix of AUCs; each row corresponds to one predicted feature, and columns correspond to the ground truth
-    """
-    
-    n_predictions, length_predictions = np.shape(prediction_matrix)
-    n_truths, length_truths = np.shape(ground_truth_matrix)
+    AUC for each prediction  * each  ground_truth
 
-    assert length_predictions == length_truths
-    
+    prediction_matrix of shape: (#obs, #predicted features); gets each predicted feature gets min-max  to range 0-1.
+    ground_truth_matrix of shape: (#obs, #ground truth features)
+
+    output of shape(#predicted features, #ground truth features)
+    """
+
+    prediction_matrix = normalize_classifier_matrix(prediction_matrix).T
+    ground_truth_matrix = normalize_binary(ground_truth_matrix).T
+
+    n_predictions, n_pred_observations = np.shape(prediction_matrix)
+    n_truths, n_truth_observations = np.shape(ground_truth_matrix)
+
+    assert n_pred_observations == n_truth_observations
+
     AUCs = np.empty((n_predictions, n_truths))
-    for i, prediction_row in enumerate(prediction_matrix):
-        for j, ground_truth_row in enumerate(ground_truth_matrix):
-            AUC = calculate_AUC_vector(prediction=prediction_row, ground_truth=ground_truth_row)
-            AUCs[i,j] = AUC
+
+    p = Progress(
+        SpinnerColumn(),
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+    )
+    with p:
+        t = p.add_task("AUC", total=n_predictions)
+        for i, prediction in enumerate(prediction_matrix):
+            for j, ground_truth in enumerate(ground_truth_matrix):
+                AUC = calculate_AUC_vector(prediction=prediction, ground_truth=ground_truth)
+                AUCs[i,j] = AUC
+            p.update(t, advance=1)
     return AUCs
 
 def calculate_precision_matrix(prediction_matrix, ground_truth_matrix):
     """
-    precision for each row in prediction  *  each row in ground_truth
-    returns: matrix of average precisions; each row corresponds to one predicted feature, and columns correspond to the ground truth
+    average precision for each prediction * each  ground_truth
+
+    prediction_matrix of shape: (#obs, #predicted features); gets each predicted feature gets min-max  to range 0-1.
+    ground_truth_matrix of shape: (#obs, #ground truth features)
+
+    output of shape(#predicted features, #ground truth features)
     """
-    
-    n_predictions, length_predictions = np.shape(prediction_matrix)
-    n_truths, length_truths = np.shape(ground_truth_matrix)
+    prediction_matrix = normalize_classifier_matrix(prediction_matrix).T
+    ground_truth_matrix = normalize_binary(ground_truth_matrix).T
 
-    assert length_predictions == length_truths
-    
+    n_predictions, n_pred_observations = np.shape(prediction_matrix)
+    n_truths, n_truth_observations = np.shape(ground_truth_matrix)
+
+    assert n_pred_observations == n_truth_observations
+
     precisions = np.empty((n_predictions, n_truths))
-    for i, prediction_row in enumerate(prediction_matrix):
-        for j, ground_truth_row in enumerate(ground_truth_matrix):
-            precision = calculate_precision_vector(prediction=prediction_row, ground_truth=ground_truth_row)
-            precisions[i,j] = precision
+    p = Progress(
+        SpinnerColumn(),
+        *Progress.get_default_columns(),
+        TimeElapsedColumn(),
+    )
+    with p:
+        t = p.add_task("precision", total=n_predictions)
+        for i, prediction in enumerate(prediction_matrix):
+            for j, ground_truth in enumerate(ground_truth_matrix):
+                precision = calculate_precision_vector(prediction=prediction, ground_truth=ground_truth)
+                precisions[i,j] = precision
+            p.update(t, advance=1)
     return precisions
-
-preds = np.array([[0.3, 0.4, 0.5],[1, 0.9, 0.4], [0, 1, 0]])
-truths = np.array([[0,1,1], [1,1,0], [1, 0, 0]])
-
-print(calculate_AUC_matrix(preds, truths))
-print(calculate_precision_matrix(preds, truths))
