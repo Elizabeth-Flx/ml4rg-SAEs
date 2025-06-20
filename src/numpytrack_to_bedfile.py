@@ -15,6 +15,8 @@ def track_to_bed(
     track_name: str = "Ground Truth",
     chrom: str = "chr1",
 ):
+    track = track.astype(bool)
+
     header = f'track name="{track_name}"'
     positions = np.arange(track.shape[0])
     track_positions = positions[track]
