@@ -33,7 +33,10 @@ from numpytrack_to_bedfile import track_to_bed, track_to_bedgraph
 # # Check manually if all files are present
 # print(sorted(os.listdir()))
 
-emb_path = os.path.join(gdrive_path, "layer_11_embeddings_30subset.npy")
+raw_data_dir = "/s/project/ml4rg_students/2025/project02/raw"
+group_data_dir = "/s/project/ml4rg_students/2025/project02/group-1"
+
+emb_path = os.path.join(raw_data_dir, "layer_11_embeddings.npy")
 emb = np.load(emb_path)
 emb.shape
 
@@ -54,11 +57,11 @@ sae.train_model(
     train_emb_tensor,
     val_activations=val_emb_tensor,
     batch_size=16,
-    num_epochs=10,
-    checkpoint_dir="",
+    num_epochs=1, # 50
+    checkpoint_dir=os.path.join(group_data_dir, "mcclain-thiel-sae"),
 )
 
-sae.plot_training_metrics(save_path="")
+sae.plot_training_metrics(save_path=os.path.join(group_data_dir, "mcclain-thiel-sae/training_metrics.png"))
 
 """The `get_feature_vectors` method actually gets the model weights, not the activations.
 
@@ -71,33 +74,29 @@ emb_tensor[0].shape
 
 """The sae encoder activations are what we are interested in"""
 
-activations = sae.encode(emb_tensor[:100].to(sae.device))
+# TODO: somehow do this in a batched way to avoid oom
+activations = sae.encode(emb_tensor.to(sae.device))
 activations
 
 activations.shape
 
-"""Activations of one neuron:"""
-
-activations_f1 = activations[:, :, 0]
-activations_f1, activations_f1.shape
-
 """Now we load the ground truth"""
 
 groundtruth_path = os.path.join(
-    gdrive_path, "chip_exo_57_TF_binding_sites_30subset.npy"
+    raw_data_dir, "chip_exo_57_TF_binding_sites.npy"
 )
 groundtruth = np.load(groundtruth_path)
 
 groundtruth_int = groundtruth.astype(int)
 
-groundtruth_int = groundtruth_int[:100, :, -1]
+groundtruth_int = groundtruth_int[:, :, -1]
 
 activations_np = activations.cpu().numpy()
 
 """For the AUC calculations we need to do some reshaping"""
 
-groundtruth_int = groundtruth_int.reshape(100 * 1003, 1)
-activations_np = activations_np.reshape(100 * 1003, activations_np.shape[-1])
+groundtruth_int = groundtruth_int.reshape(n_seqs * 1003, 1)
+activations_np = activations_np.reshape(n_seqs * 1003, activations_np.shape[-1])
 
 """We don't need these anymore, so let's delete them to prevent colab from crashing"""
 
@@ -112,28 +111,28 @@ tfbs_feature_auroc_idx = np.where(aucs == tfbs_feature_auroc)[0][0]
 
 seq_idx = 9
 
-example_act = activations_np.reshape(100, 1003, activations_np.shape[-1])[
+example_act = activations_np.reshape(n_seqs, 1003, activations_np.shape[-1])[
     seq_idx, :, tfbs_feature_auroc_idx
 ]
-example_gt = groundtruth_int.reshape(100, 1003)[seq_idx]
+example_gt = groundtruth_int.reshape(n_seqs, 1003)[seq_idx]
 
-track_to_bedgraph(example_act, f"seq{seq_idx}_activations.bedgraph")
-track_to_bed(example_gt, f"seq{seq_idx}_groundtruth.bed")
+track_to_bedgraph(example_act, os.path.join(group_data_dir, f"mcclain-thiel-sae/seq{seq_idx}_activations.bedgraph"))
+track_to_bed(example_gt, os.path.join(group_data_dir, f"mcclain-thiel-sae/seq{seq_idx}_groundtruth.bed"))
 
 from sklearn.metrics import RocCurveDisplay, roc_curve
 
 fpr, tpr, _ = roc_curve(
-    groundtruth_int.reshape(100 * 1003, 1),
-    activations_np[:, tfbs_feature_auroc_idx].reshape(100 * 1003, 1),
+    groundtruth_int.reshape(n_seqs * 1003, 1),
+    activations_np[:, tfbs_feature_auroc_idx].reshape(n_seqs * 1003, 1),
 )
 roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr).plot()
-plt.savefig("")
+plt.savefig(os.path.join(group_data_dir, f"mcclain-thiel-sae/roc_curve.png"))
 
 """Let's take a look at the precision"""
 
 precisions = calculate_precision_matrix(
-    activations_np.reshape(100 * 1003, 6144),
-    groundtruth_int.reshape(100 * 1003, 1),
+    activations_np.reshape(n_seqs * 1003, activations_np.shape[-1]),
+    groundtruth_int.reshape(n_seqs * 1003, 1),
 )
 precisions
 
