@@ -2,7 +2,7 @@ import numpy as np
 import os
 import torch
 from  models.sae import BatchTopKSAE, JumpReLUSAE, VanillaSAE
-from models.model import SAE
+from models.simple_sae import SAE
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from evaluate_feature import calculate_AUC_matrix, calculate_precision_matrix
@@ -90,8 +90,8 @@ def evaluate_model(model, data_loader, ground_truth):
     model.eval()
     
     for data_sample, gt in zip(data_loader, ground_truth):
-        if torch.sum(gt) != 0:
-            print("Found non-zero ground truth data.")
+        if torch.sum(gt) > 30:
+            print("Found bigger than 30 ground truth data.")
             break
     data_sample = data_sample.numpy()
     gt = gt.numpy()
@@ -167,13 +167,12 @@ def plot_genomic_track(ground_truth, feature, feature_name, save_path):
     plt.style.use('seaborn-v0_8')
     continuous_track = feature.flatten()
     ground_truth_track = ground_truth.flatten()
-    print(ground_truth_track.shape, np.sum(ground_truth_track))
     continuous_track = (continuous_track - continuous_track.min()) / (continuous_track.max() - continuous_track.min())
     plt.plot(continuous_track, label=f'{feature_name}', color='blue')
     plt.bar(range(len(ground_truth_track)), ground_truth_track, color='blue', alpha=0.5, label='Ground Truth')
     plt.xlabel('Position')
     plt.ylabel('Intensity')
-    plt.xlim(500, 1000)
+    plt.xlim(0, 1000)
     plt.savefig(f"{save_path}/{feature_name}_genomic_track.png")
     plt.close()
 
@@ -192,13 +191,12 @@ if __name__ == "__main__":
     parser.add_argument('--max_grad_norm', type=float, default=100000, help='Maximum gradient norm for clipping')
     parser.add_argument('--eval_size', type=int, default=1000, help='Size of the evaluation set')
     parser.add_argument('--save_path', type=str, default='../data/models', help='Path to save the model and plots')
-    parser.add_argument('--embeddings_num', type=int, default=1030*100, help='Number of embeddings to plot')
     parser.add_argument('--l1_coeff', type=float, default=1e-5, help='L1 regularization coefficient for BatchTopKSAE')
     parser.add_argument('--latent_space_multiplier', type=int, default=10, help='Dimensionality of the latent space for BatchTopKSAE')
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--top_k', type=int, default=128, help='Top K features to select for BatchTopKSAE')
     parser.add_argument('--top_k_aux', type=int, default=512, help='Top K auxiliary features to select for BatchTopKSAE')
-    parser.add_argument('--aux_penalty', type=float, default=(1/32), help='Auxiliary penalty for BatchTopKSAE')
+    parser.add_argument('--aux_penalty', type=float, default=(1/64), help='Auxiliary penalty for BatchTopKSAE')
     parser.add_argument('--num_batches_in_buffer', type=int, default=10, help='Number of batches in buffer for BatchTopKSAE')
     parser.add_argument('--n_batches_to_dead', type=int, default=5, help='Number of batches to dead for BatchTopKSAE')
     parser.add_argument('--input_unit_norm', action='store_true', help='Whether to normalize input units for BatchTopKSAE')
