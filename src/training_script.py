@@ -196,7 +196,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42, help='Random seed for reproducibility')
     parser.add_argument('--top_k', type=int, default=128, help='Top K features to select for BatchTopKSAE')
     parser.add_argument('--top_k_aux', type=int, default=512, help='Top K auxiliary features to select for BatchTopKSAE')
-    parser.add_argument('--aux_penalty', type=float, default=(1/64), help='Auxiliary penalty for BatchTopKSAE')
+    parser.add_argument('--aux_penalty', type=float, default=(1/32), help='Auxiliary penalty for BatchTopKSAE')
     parser.add_argument('--num_batches_in_buffer', type=int, default=10, help='Number of batches in buffer for BatchTopKSAE')
     parser.add_argument('--n_batches_to_dead', type=int, default=5, help='Number of batches to dead for BatchTopKSAE')
     parser.add_argument('--input_unit_norm', action='store_true', help='Whether to normalize input units for BatchTopKSAE')
