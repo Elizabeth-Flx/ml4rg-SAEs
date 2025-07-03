@@ -7,7 +7,6 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from evaluate_feature import calculate_AUC_matrix, calculate_precision_matrix
 from torch.utils.data import DataLoader
-from torchdata.datapipes.iter import IterableWrapper
 import argparse
 from logs import init_wandb, log_wandb, save_checkpoint
 
@@ -20,12 +19,10 @@ def load_data(data_path, batch_size=2048, eval_size=1000):
     dataset = torch.tensor(data, dtype=torch.float32)
     # Create DataLoader for training and validation
     train_data, val_data = torch.utils.data.random_split(dataset, [int(0.8 * len(dataset)), len(dataset) - int(0.8 * len(dataset))])
-    train_wrapper = IterableWrapper(train_data)
-    val_wrapper = IterableWrapper(val_data)
     # Create DataLoader objects
-    train_loader = DataLoader(train_wrapper, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_wrapper, batch_size=batch_size, shuffle=False)
-    eval_loader = DataLoader(IterableWrapper(dataset), batch_size=1000, shuffle=False)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False)
+    eval_loader = DataLoader(dataset, batch_size=1000, shuffle=False)
     print(f"Training data size: {len(train_data)}")
     print(f"Validation data size: {len(val_data)}")
     print(f"Evaluation data size: {len(dataset)}")
@@ -37,8 +34,7 @@ def load_ground_truth(gt_path, eval_size=1000):
     # Flatten the ground truth
     gt = gt.reshape(-1, 58)[:,57].reshape(-1, 1)
     print(f"Ground truth data size: {gt.shape}")
-    gt_wrapper = IterableWrapper(gt)
-    gt_loader = DataLoader(gt_wrapper, batch_size=eval_size, shuffle=False)
+    gt_loader = DataLoader(gt, batch_size=eval_size, shuffle=False)
     return gt_loader
 
 def train_model(model, train_loader, val_loader, optimizer, loss_function, cfg,num_epochs=5):
