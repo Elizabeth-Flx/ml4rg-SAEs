@@ -9,6 +9,7 @@ from evaluate_feature import calculate_AUC_matrix, calculate_precision_matrix
 from torch.utils.data import DataLoader
 from torchdata.datapipes.iter import IterableWrapper
 import argparse
+from logs import init_wandb, log_wandb, save_checkpoint
 
 
 def load_data(data_path, batch_size=2048, eval_size=1000):
@@ -41,12 +42,15 @@ def load_ground_truth(gt_path, eval_size=1000):
     return gt_loader
 
 def train_model(model, train_loader, val_loader, optimizer, loss_function, cfg,num_epochs=5):
+    wandb_run = init_wandb(cfg)
     model.train()
     for epoch in range(num_epochs):
         epoch_loss = 0
-        for batch in tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}"):
+
+        for batch_idx,batch in enumerate(tqdm(train_loader, desc=f"Epoch {epoch + 1}/{num_epochs}")):
             optimizer.zero_grad()
             outputs = model(batch)
+            log_wandb(outputs, batch_idx, wandb_run)
             if model.__class__.__name__ == 'BatchTopKSAE' or model.__class__.__name__ == 'JumpReLUSAE' or model.__class__.__name__ == 'VanillaSAE':
                 loss = outputs['loss']
                 loss.backward()
@@ -76,6 +80,7 @@ def train_model(model, train_loader, val_loader, optimizer, loss_function, cfg,n
         if val_epoch_loss < best_loss:
                 best_loss = val_epoch_loss
                 best_model = model.state_dict()
+        
 
 
     return model, best_model
@@ -202,6 +207,7 @@ if __name__ == "__main__":
     parser.add_argument('--input_unit_norm', action='store_true', help='Whether to normalize input units for BatchTopKSAE')
     parser.add_argument('--evalmode', action='store_true', help='Whether to run in evaluation mode')
     parser.add_argument('--nowarnings', action='store_true', help='Suppress warnings during training')
+    
 
 
 
@@ -236,6 +242,8 @@ if __name__ == "__main__":
         "aux_penalty": args.aux_penalty,
 
     }
+
+
 
     train_loader, val_loader, data_loader = load_data(args.data_path, cfg["batch_size"], args.eval_size)
     gt_loader = load_ground_truth(args.gt_path, args.eval_size)
